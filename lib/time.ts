@@ -1,0 +1,8 @@
+export const time=(m:number)=>`${Math.floor(m/60).toString().padStart(2,'0')}:${(m%60).toString().padStart(2,'0')}`;
+function localParts(ms:number,zone:string){const p=new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(ms);const values=Object.fromEntries(p.map(x=>[x.type,x.value]));return Date.UTC(+values.year,+values.month-1,+values.day,+values.hour,+values.minute,+values.second)}
+export function localToUtc(date:string,minutes:number,zone:string){const [y,m,d]=date.split('-').map(Number),desired=Date.UTC(y,m-1,d,0,minutes);let guess=desired;for(let i=0;i<4;i++)guess+=desired-localParts(guess,zone);if(localParts(guess,zone)!==desired)throw Error('This local time does not exist because the clocks change. Choose another time.');if(localParts(guess-3600000,zone)===desired)guess-=3600000;return guess}
+export function localMinutes(ms:number,zone:string){const p=new Intl.DateTimeFormat('en',{timeZone:zone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(ms);return Number(p.find(x=>x.type==='hour')!.value)*60+Number(p.find(x=>x.type==='minute')!.value)}
+export function formatDateTime(ms:number,zone:string){return new Intl.DateTimeFormat('en-GB',{timeZone:zone,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(ms)}
+export const overlap=(a:number,b:number,c:number,d:number)=>Math.max(0,Math.min(b,d)-Math.max(a,c));
+export function slots(start:number,end:number){const out:number[]=[];for(let h=Math.floor(start/3600000)*3600000;h<end;h+=3600000)if(overlap(start,end,h,h+3600000)>=900000)out.push(h);return out}
+export const groupWindow=(slot:number)=>({opensAt:slot-12*3600000,expiresAt:slot+12*3600000});

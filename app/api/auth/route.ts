@@ -1,0 +1,10 @@
+import {localAuthEnabled,identity,passwordHash,sessionCookie} from '@/lib/auth';
+import {db,settings,assert,json,sameOrigin,failure,response,rate,digest,hex} from '@/lib/security';
+export async function GET(req:Request){try{return response({userId:await identity(req),local:localAuthEnabled(req)})}catch(e){return failure(e)}}
+export async function POST(req:Request){try{sameOrigin(req);assert(localAuthEnabled(req),'Use ChatGPT sign-in for this hosted app.',403);const b=await json(req,3000);await rate('auth:'+await digest(req.headers.get('cf-connecting-ip')||'loopback'),20,600000);
+ if(b.action==='logout'){const token=(req.headers.get('cookie')||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('sq_session='))?.slice(11);if(token)await db().prepare('DELETE FROM local_sessions WHERE hash=?').bind(await digest(token)).run();return Response.json({ok:true},{headers:{'Set-Cookie':'sq_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0','Cache-Control':'no-store'}})}
+ assert(['register','login'].includes(b.action),'Choose login or register.');
+ const email=String(b.email||'').trim().toLowerCase(),password=String(b.password||'');assert(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)&&email.length<255,'Enter a valid email.');assert(password.length>=12&&password.length<=256,'Use a password with at least 12 characters.');let row=await db().prepare('SELECT * FROM local_credentials WHERE email=?').bind(email).first<any>();let id:string;
+ if(b.action==='register'){assert(!row,'An account with this email already exists.',409);id=crypto.randomUUID();const salt=hex(crypto.getRandomValues(new Uint8Array(16)));await db().prepare('INSERT INTO local_credentials(user_id,email,salt,hash,created_at) VALUES(?,?,?,?,?)').bind(id,email,salt,await passwordHash(password,salt),Date.now()).run()}else{const hash=await passwordHash(password,row?.salt||'unknown-account-salt');assert(row&&hash===row.hash,'Email or password is incorrect.',401);id=row.user_id;}
+ return Response.json({ok:true,userId:id},{headers:{'Set-Cookie':await sessionCookie(req,id),'Cache-Control':'no-store'}});
+ }catch(e){return failure(e)}}

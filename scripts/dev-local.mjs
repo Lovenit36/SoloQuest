@@ -1,0 +1,13 @@
+import {spawn} from 'node:child_process';
+import {readFileSync,existsSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+process.chdir(fileURLToPath(new URL('..',import.meta.url)));
+if(!existsSync('.dev.vars'))throw Error('Run npm run setup first.');
+const vars=Object.fromEntries(readFileSync('.dev.vars','utf8').split(/\r?\n/).filter(l=>l.trim()&&!l.trim().startsWith('#')).map(l=>{const i=l.indexOf('=');return [l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^(["'])(.*)\1$/,'$2')]}));
+const child=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','5173','--strictPort'],{stdio:'inherit'});
+let warned=false;
+const sweep=async()=>{if(!vars.MAINTENANCE_SECRET)return;try{const r=await fetch('http://127.0.0.1:5173/api/maintenance',{method:'POST',headers:{Authorization:'Bearer '+vars.MAINTENANCE_SECRET},signal:AbortSignal.timeout(10000)});if(!r.ok&&!warned){console.warn('Cleanup could not run. Verify MAINTENANCE_SECRET; access expiry is still enforced.');warned=true}}catch{/* The server may still be starting. Next sweep retries. */}};
+const timer=setInterval(sweep,60000);const initial=setTimeout(sweep,15000);
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{clearInterval(timer);clearTimeout(initial);child.kill(signal)});
+child.on('exit',code=>{clearInterval(timer);clearTimeout(initial);process.exit(code??0)});
+child.on('error',error=>{console.error(error.message);clearInterval(timer);clearTimeout(initial);process.exit(1)});

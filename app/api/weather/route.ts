@@ -1,0 +1,2 @@
+import {forecast} from '@/lib/weather';import {locationSchema} from '@/lib/state';import {response,failure,json,sameOrigin,rate,digest} from '@/lib/security';
+export async function POST(req:Request){try{sameOrigin(req);await rate('weather:'+await digest(req.headers.get('cf-connecting-ip')||'local'),30);const b=await json(req,4000);return response(await forecast(locationSchema.parse(b.location),String(b.date)))}catch(e){return failure(e)}}

@@ -1,0 +1,2 @@
+import {locations} from '@/lib/providers';import {response,failure,assert,rate,digest} from '@/lib/security';
+export async function GET(req:Request){try{const q=new URL(req.url).searchParams.get('q')?.trim()||'';assert(q.length>=2&&q.length<=150,'Enter at least two characters.');await rate('geo:'+await digest(req.headers.get('cf-connecting-ip')||'local'),30);return response({locations:await locations(q),source:'Open-Meteo / GeoNames'})}catch(e){return failure(e)}}

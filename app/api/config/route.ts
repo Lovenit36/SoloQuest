@@ -1,0 +1,2 @@
+import {settings,response} from '@/lib/security';import {localAuthEnabled} from '@/lib/auth';
+export async function GET(req:Request){const s=settings();return response({places:!!s.GOOGLE_PLACES_API_KEY,events:!!s.TICKETMASTER_API_KEY,ai:!!(s.PLANNER_API_KEY&&s.PLANNER_MODEL),localAuth:localAuthEnabled(req),groupLifetimeHours:24,groupWindow:'12 hours before to 12 hours after each matching hour',realtime:'polling'})}
